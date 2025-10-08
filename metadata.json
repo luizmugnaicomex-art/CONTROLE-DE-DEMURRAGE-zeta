@@ -1,5 +1,5 @@
 {
   "name": "Controle de Demurrage - OK",
-  "requestFramePermissions": [],
-  "description": "Container Demurrage Controle"
+  "description": "Container Demurrage Controle",
+    "requestFramePermissions": []
 }
