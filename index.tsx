@@ -110,7 +110,7 @@ async function salvarDados() {
             ...d,
             'Discharge Date': d['Discharge Date'] ? d['Discharge Date'].toISOString() : null,
             'End of Free Time': d['End of Free Time'].toISOString(),
-            'Return Date': d['Return Date'] ? d['Return Date'].toISOString() : null, // CORREÇÃO: undefined trocado por null
+            'Return Date': d['Return Date'] ? d['Return Date'].toISOString() : null, // CORREÇÃO FINAL: undefined trocado por null
         }));
 
         const estadoParaSalvar = {
