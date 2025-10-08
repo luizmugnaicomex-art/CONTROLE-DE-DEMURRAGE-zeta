@@ -70,19 +70,22 @@ const appState: AppState = {
 
 const MAX_HISTORY_SNAPSHOTS = 20;
 
-// --- FIREBASE INITIALIZATION & SETUP ---
+// --- FIREBASE & AI INITIALIZATION ---
 // ** IMPORTANTE **
 // Cole as suas credenciais do Firebase que você copiou do console do Firebase aqui.
-// Substitua os valores de exemplo "SUA_..." pelas suas chaves reais.
 const firebaseConfig = {
-  apiKey: "AIzaSyCjaXjUIKS7HCX4fDnst17HoykFElNusNI",
-  authDomain: "demurragecontrolzeta.firebaseapp.com",
-  projectId: "demurragecontrolzeta",
-  storageBucket: "demurragecontrolzeta.firebasestorage.app",
-  messagingSenderId: "386182890771",
-  appId: "1:386182890771:web:39e73709851b36eb7706e6",
-  measurementId: "G-YC0THL90Q1"
+    apiKey: "AIzaSyCjaXjUIKS7HCX4fDnst17HoykFElNusNI",
+    authDomain: "demurragecontrolzeta.firebaseapp.com",
+    projectId: "demurragecontrolzeta",
+    storageBucket: "demurragecontrolzeta.appspot.com",
+    messagingSenderId: "386182890771",
+    appId: "1:386182890771:web:39e73709851b36eb7706e6",
 };
+
+// ** IMPORTANTE **
+// Cole a sua chave de API do Google AI Studio (Gemini) aqui.
+const GEMINI_API_KEY = "SUA_CHAVE_API_GEMINI_AQUI";
+
 
 // Initialize Firebase
 if (!firebase.apps.length) {
@@ -107,7 +110,7 @@ async function salvarDados() {
             ...d,
             'Discharge Date': d['Discharge Date'] ? d['Discharge Date'].toISOString() : null,
             'End of Free Time': d['End of Free Time'].toISOString(),
-            'Return Date': d['Return Date'] ? d['Return Date'].toISOString() : undefined,
+            'Return Date': d['Return Date'] ? d['Return Date'].toISOString() : null, // CORREÇÃO: undefined trocado por null
         }));
 
         const estadoParaSalvar = {
@@ -1056,7 +1059,7 @@ function openDetailsModal(container: ContainerData) {
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div><p class="text-gray-500 dark:text-slate-400">Data de Descarga</p><p class="font-semibold text-gray-800 dark:text-slate-100">${formatDate(container['Discharge Date'])}</p></div>
                     <div><p class="text-gray-500 dark:text-slate-400">Dias Livres</p><p class="font-semibold text-gray-800 dark:text-slate-100">${container['Free Days']}</p></div>
-                    <div><p class="text-gray-500 dark:text-slate-400">Fim do Tempo Livre</p><p class="font-semibold text-gray-800 dark:text-slate-100">${formatDate(container['End of Free Time'])}</p></div>
+                    <div><p class="text-gray-500 dark:text-slate-400">Fim do Tempo Livre</p><p class="font-semibold text-gray-800 dark:text-slate-200">${formatDate(container['End of Free Time'])}</p></div>
                     <div><p class="text-gray-500 dark:text-slate-400">Data de Devolução</p><p class="font-semibold text-gray-800 dark:text-slate-100">${formatDate(container['Return Date'])}</p></div>
                 </div>
             </div>
@@ -1778,7 +1781,7 @@ async function getAiInsights() {
     openModal('ai-modal');
     
     try {
-        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+        const ai = new GoogleGenAI(GEMINI_API_KEY);
 
         const allLateContainers = appState.filteredData.filter(d => d['Demurrage Cost'] > 0);
         
@@ -1872,7 +1875,7 @@ async function generateDemurrageJustification(container: ContainerData) {
     </div>`;
 
     try {
-        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+        const ai = new GoogleGenAI(GEMINI_API_KEY);
 
         const prompt = `
             As a senior logistics coordinator, I need to write a formal justification report for a demurrage charge to get payment approval. Based on the data for the container below, please generate a plausible and professional report.
