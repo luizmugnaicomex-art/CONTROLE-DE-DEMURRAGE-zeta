@@ -6,7 +6,12 @@ declare const jspdf: any;
 declare const html2canvas: any;
 declare const ChartDataLabels: any;
 
-import { GoogleGenAI } from "@google/genai";
+/*
+ * CORREÇÃO IMPORTANTE PARA O ERRO DE BUILD
+ * A linha que importava "@google/genai" foi comentada abaixo para corrigir o erro
+ * "failed to resolve import" que estava acontecendo na Vercel.
+*/
+// import { GoogleGenAI } from "@google/genai";
 
 // --- TYPE DEFINITIONS ---
 interface ContainerData {
@@ -521,7 +526,7 @@ function processData(data: any[]): ContainerData[] {
                 const shipowner = String(row['Shipowner'] || 'DEFAULT').trim().toUpperCase();
                 const rate = appState.demurrageRates[shipowner] || appState.demurrageRates.default;
                 const demurrageCost = demurrageDays * rate;
-                 
+                
                 return {
                     'PO': String(row['PO'] || ''),
                     'Vessel': String(row['Vessel'] || ''),
@@ -604,8 +609,8 @@ const handleFileUpload = (event: Event) => {
             const mappedData = rows.map(rowArray => {
                 const newRow: { [key: string]: any } = {};
                 headers.forEach((header, index) => {
-                     const mappedKey = headerMap[header] || header.trim();
-                     newRow[mappedKey] = rowArray[index];
+                    const mappedKey = headerMap[header] || header.trim();
+                    newRow[mappedKey] = rowArray[index];
                 });
                 return newRow;
             });
@@ -822,10 +827,10 @@ function applyFilters() {
 
     appState.filteredData = appState.allData.filter(d => {
         const arrivalDateMatch = (!arrivalStartDate || (d['Discharge Date'] && d['Discharge Date'] >= arrivalStartDate)) &&
-                                 (!arrivalEndDate || (d['Discharge Date'] && d['Discharge Date'] <= arrivalEndDate));
-    
+                                  (!arrivalEndDate || (d['Discharge Date'] && d['Discharge Date'] <= arrivalEndDate));
+        
         const freetimeDateMatch = (!freetimeStartDate || d['End of Free Time'] >= freetimeStartDate) &&
-                                  (!freetimeEndDate || d['End of Free Time'] <= freetimeEndDate);
+                                   (!freetimeEndDate || d['End of Free Time'] <= freetimeEndDate);
 
         return (poFilter.length === 0 || poFilter.includes(d.PO)) &&
                (vesselFilter.length === 0 || vesselFilter.includes(d.Vessel)) &&
@@ -1430,8 +1435,8 @@ function createOrUpdateCharts() {
                 tooltip: {
                     ...tooltipConfig,
                     callbacks: {
-                         title: (tooltipItems) => tooltipItems[0].label,
-                         label: (tooltipItem) => `${translate('tooltip_cost')}: ${formatCurrency(tooltipItem.raw as number || 0)}`
+                        title: (tooltipItems) => tooltipItems[0].label,
+                        label: (tooltipItem) => `${translate('tooltip_cost')}: ${formatCurrency(tooltipItem.raw as number || 0)}`
                     }
                 }
             } 
@@ -1560,9 +1565,9 @@ function createOrUpdateCharts() {
                     title: (tooltipItems) => tooltipItems[0].label,
                     label: (tooltipItem) => `${translate('tooltip_cost')}: ${formatCurrency(tooltipItem.raw as number || 0)}`,
                     afterLabel: (tooltipItem) => {
-                       const shipowner = tooltipItem.label;
-                       const originalData = sortedShipownersData.find(d => d.shipowner === shipowner);
-                       return originalData ? `${translate('tooltip_from')} ${originalData.count} ${translate('tooltip_containers')}` : '';
+                        const shipowner = tooltipItem.label;
+                        const originalData = sortedShipownersData.find(d => d.shipowner === shipowner);
+                        return originalData ? `${translate('tooltip_from')} ${originalData.count} ${translate('tooltip_containers')}` : '';
                     }
                 }
             }
@@ -1614,9 +1619,9 @@ function createOrUpdateCharts() {
                         return `${translate('chart_tooltip_avg_days')}: ${avgDays}`;
                     },
                     afterLabel: (tooltipItem) => {
-                       const shipowner = tooltipItem.label;
-                       const originalData = avgDaysData.find(d => d.shipowner === shipowner);
-                       return originalData ? `${translate('tooltip_from')} ${originalData.count} ${translate('tooltip_containers')}` : '';
+                        const shipowner = tooltipItem.label;
+                        const originalData = avgDaysData.find(d => d.shipowner === shipowner);
+                        return originalData ? `${translate('tooltip_from')} ${originalData.count} ${translate('tooltip_containers')}` : '';
                     }
                 }
             }
@@ -1978,3 +1983,4 @@ function init() {
 
 // --- RUN APP ---
 document.addEventListener('DOMContentLoaded', init);
+
