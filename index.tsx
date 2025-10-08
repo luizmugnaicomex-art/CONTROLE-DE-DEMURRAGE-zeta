@@ -1,3 +1,10 @@
+/*
+ * CORREÇÃO IMPORTANTE PARA O ERRO DE BUILD
+ * A linha que importava "@google/genai" foi comentada abaixo para corrigir o erro
+ * "failed to resolve import" que estava acontecendo na Vercel.
+*/
+// import { GoogleGenerativeAI } from "@google/genai"; 
+
 // NOVO: Aviso para o TypeScript sobre a variável global do Firebase
 declare const firebase: any;
 
@@ -919,4 +926,51 @@ exportPdfBtn.addEventListener('click', async () => {
     const doc = new jsPDF({ orientation: 'landscape' });
 
     doc.setFontSize(18);
-    doc.setTextColor(44, 6
+    doc.setTextColor(44, 62, 80);
+    doc.text("Programação de Entregas de Contêineres", 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(127, 140, 141);
+    doc.text(`Relatório gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 29);
+    
+    const head = [['#', 'Entrega BYD', 'Container', 'Transportadora', 'Placa', 'Armazém', 'Navio', 'Status']];
+    const body = deliveryData.map((row, index) => [
+        index + 1,
+        row['DELIVERY AT BYD'] || '',
+        row['CONTAINER'] || '',
+        row['TRANSPORTATION COMPANY'] || '',
+        row['TRUCK LICENSE PLATE 1'] || '',
+        row['BONDED WAREHOUSE'] || '',
+        row['VESSEL'] || '',
+        row['STATUS'] || ''
+    ]);
+    
+    (doc as any).autoTable({ 
+        startY: 36, 
+        head, 
+        body, 
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+        styles: { fontSize: 7, cellPadding: 1.5 },
+        columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 20 }, 2: { cellWidth: 25 }, 3: { cellWidth: 35 } },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        didDrawPage: function (data: any) {
+            const pageCount = doc.internal.getNumberOfPages();
+            doc.setFontSize(10);
+            doc.setTextColor(127, 140, 141);
+            doc.text('Página ' + data.pageNumber + ' de ' + pageCount, data.settings.margin.left, doc.internal.pageSize.height - 10);
+        }
+    });
+    doc.save('programacao_entregas.pdf');
+    showToast('Arquivo PDF gerado!', 'success');
+});
+
+function resetUI(): void {
+    deliveryDashboard.classList.add('hidden');
+    summaryStats.classList.add('hidden');
+    exportExcelBtn.classList.add('hidden');
+    exportPdfBtn.classList.add('hidden');
+    placeholder.classList.remove('hidden');
+    deliveryData = [];
+    activeStatusFilter = null;
+    lastUpdate.textContent = 'Carregue sua planilha de agendamento para começar';
+}
