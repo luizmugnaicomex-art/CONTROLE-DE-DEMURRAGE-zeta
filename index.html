@@ -4,29 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard de Controle de Demurrage</title>
+    
+    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Libraries for Excel, Charts, and PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <!-- Fonts and Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Local Stylesheet -->
     <link rel="stylesheet" href="index.css">
-<script type="importmap">
-{
-  "imports": {
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.20.0"
-  }
-}
-</script>
+
+    <!-- Import Map for AI Studio (optional, can be kept) -->
+    <script type="importmap">
+    {
+      "imports": {
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.20.0"
+      }
+    }
+    </script>
 </head>
-<body class="p-4 md:p-8 bg-slate-100 dark:bg-slate-900">
+<body class="p-4 md:p-8 bg-slate-100 dark:bg-slate-900 font-[Inter,sans-serif]">
+    
+    <!-- History Banner (initially hidden) -->
     <div id="history-banner" class="hidden fixed top-0 left-0 right-0 bg-yellow-400 dark:bg-yellow-600 text-black dark:text-white p-2 text-center text-sm font-semibold z-[100] shadow-lg">
         <span id="history-banner-text"></span>
         <button id="return-to-live-btn" class="ml-4 underline font-bold hover:text-blue-700 dark:hover:text-blue-300" data-translate-key="return_to_live_btn">Voltar à visualização atual</button>
     </div>
+
     <div class="max-w-full mx-auto">
         
         <!-- Header -->
@@ -365,6 +378,15 @@
     <!-- Toast Notification Container -->
     <div id="toast-container" class="toast-container"></div>
     
+    <!--
+      COMENTÁRIO DE CORREÇÃO:
+      Os scripts do Firebase abaixo estão no lugar perfeito.
+      1. Eles são carregados antes do seu script principal (index.tsx).
+      2. Isso garante que a variável `firebase` esteja disponível globalmente
+         quando o seu código em `index.tsx` for executado.
+      Nenhuma alteração foi necessária aqui.
+    -->
+    
     <!-- SCRIPTS DO FIREBASE -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
@@ -373,4 +395,3 @@
     <script src="index.tsx" type="module"></script>
 </body>
 </html>
-
