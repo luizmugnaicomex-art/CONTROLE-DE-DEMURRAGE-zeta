@@ -71,13 +71,17 @@ const appState: AppState = {
 const MAX_HISTORY_SNAPSHOTS = 20;
 
 // --- FIREBASE INITIALIZATION & SETUP ---
+// ** IMPORTANTE **
+// Cole as suas credenciais do Firebase que você copiou do console do Firebase aqui.
+// Substitua os valores de exemplo "SUA_..." pelas suas chaves reais.
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyCjaXjUIKS7HCX4fDnst17HoykFElNusNI",
+  authDomain: "demurragecontrolzeta.firebaseapp.com",
+  projectId: "demurragecontrolzeta",
+  storageBucket: "demurragecontrolzeta.firebasestorage.app",
+  messagingSenderId: "386182890771",
+  appId: "1:386182890771:web:39e73709851b36eb7706e6",
+  measurementId: "G-YC0THL90Q1"
 };
 
 // Initialize Firebase
@@ -2052,3 +2056,4 @@ function init() {
 
 // --- RUN APP ---
 document.addEventListener('DOMContentLoaded', init);
+
