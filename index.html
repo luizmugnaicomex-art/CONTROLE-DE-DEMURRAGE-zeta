@@ -23,14 +23,15 @@
     <!-- Local Stylesheet -->
     <link rel="stylesheet" href="index.css">
 
-    <!-- Import Map for AI Studio (optional, can be kept) -->
-    <script type="importmap">
-    {
-      "imports": {
-        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.20.0"
-      }
-    }
-    </script>
+    <!-- 
+      COMENTÁRIO DE CORREÇÃO: 
+      O bloco <script type="importmap"> foi removido.
+      Ele causava um erro de build na Vercel porque o sistema de compilação (Vite)
+      não conseguia encontrar o módulo "@google/genai" durante o processo no servidor.
+      Para que o projeto volte a funcionar, você também precisará remover ou comentar a linha 
+      `import ... from "@google/genai";` do seu arquivo `index.tsx`.
+      Isso desativará temporariamente a funcionalidade de "AI Insights".
+    -->
 </head>
 <body class="p-4 md:p-8 bg-slate-100 dark:bg-slate-900 font-[Inter,sans-serif]">
     
@@ -395,3 +396,4 @@
     <script src="index.tsx" type="module"></script>
 </body>
 </html>
+
