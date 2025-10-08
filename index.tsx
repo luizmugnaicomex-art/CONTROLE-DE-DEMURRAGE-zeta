@@ -5,9 +5,20 @@ declare const Chart: any;
 declare const jspdf: any;
 declare const html2canvas: any;
 declare const ChartDataLabels: any;
-declare const firebase: any; // Declaração do Firebase
 
-import { GoogleGenAI } from "@google/genai";
+// NOVO: Bloco de configuração e inicialização do Firebase
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 
 // --- TYPE DEFINITIONS ---
 interface ContainerData {
@@ -69,106 +80,6 @@ const appState: AppState = {
 };
 
 const MAX_HISTORY_SNAPSHOTS = 20;
-
-// --- FIREBASE & AI INITIALIZATION ---
-// ** IMPORTANTE **
-// Cole as suas credenciais do Firebase que você copiou do console do Firebase aqui.
-const firebaseConfig = {
-    apiKey: "AIzaSyCjaXjUIKS7HCX4fDnst17HoykFElNusNI",
-    authDomain: "demurragecontrolzeta.firebaseapp.com",
-    projectId: "demurragecontrolzeta",
-    storageBucket: "demurragecontrolzeta.appspot.com",
-    messagingSenderId: "386182890771",
-    appId: "1:386182890771:web:39e73709851b36eb7706e6",
-};
-
-// ** IMPORTANTE **
-// Cole a sua chave de API do Google AI Studio (Gemini) aqui.
-const GEMINI_API_KEY = "SUA_CHAVE_API_GEMINI_AQUI";
-
-
-// Initialize Firebase
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-const db = firebase.firestore();
-let isUpdatingFromFirestore = false; // Flag to prevent update loops
-
-// --- FIREBASE FUNCTIONS ---
-
-/**
- * Saves the entire application state to a single document in Firestore.
- */
-async function salvarDados() {
-    if (isUpdatingFromFirestore) return; // Don't save if the update came from Firestore
-
-    console.log("Salvando dados no Firebase...");
-    try {
-        // NOTE: Firestore cannot store Date objects directly in arrays of objects.
-        // We convert them to ISO strings before saving.
-        const serializableAllData = appState.allData.map(d => ({
-            ...d,
-            'Discharge Date': d['Discharge Date'] ? d['Discharge Date'].toISOString() : null,
-            'End of Free Time': d['End of Free Time'].toISOString(),
-            'Return Date': d['Return Date'] ? d['Return Date'].toISOString() : null, // CORREÇÃO FINAL: undefined trocado por null
-        }));
-
-        const estadoParaSalvar = {
-            allData: serializableAllData,
-            demurrageRates: appState.demurrageRates,
-            paidStatuses: appState.paidStatuses,
-            lastUpdate: lastUpdateEl.innerHTML,
-            _lastModified: new Date().toISOString()
-        };
-        await db.collection("demurrage_dashboard").doc("estado_atual").set(estadoParaSalvar);
-        console.log("Dados salvos com sucesso no Firebase!");
-    } catch (error) {
-        console.error("Erro ao salvar dados no Firebase: ", error);
-        showToast("Erro ao sincronizar dados.", 'error');
-    }
-}
-
-/**
- * Listens for real-time changes in the Firestore document and updates the app state.
- */
-function escutarMudancasEmTempoReal() {
-    db.collection("demurrage_dashboard").doc("estado_atual")
-        .onSnapshot((doc) => {
-            if (doc.exists) {
-                console.log("Dados recebidos do Firebase...");
-                isUpdatingFromFirestore = true; // Set flag
-
-                const data = doc.data();
-
-                // Restore data from Firestore, converting date strings back to Date objects
-                appState.allData = (data.allData || []).map(d => ({
-                    ...d,
-                    'Discharge Date': d['Discharge Date'] ? new Date(d['Discharge Date']) : null,
-                    'End of Free Time': new Date(d['End of Free Time']),
-                    'Return Date': d['Return Date'] ? new Date(d['Return Date']) : undefined,
-                }));
-
-                appState.filteredData = appState.allData;
-                appState.demurrageRates = data.demurrageRates || { default: 100 };
-                appState.paidStatuses = data.paidStatuses || {};
-                lastUpdateEl.innerHTML = data.lastUpdate || 'Carregue sua planilha para começar';
-
-                renderDashboard();
-                
-                setTimeout(() => { isUpdatingFromFirestore = false; }, 500);
-            } else {
-                console.log("Nenhum dado no Firebase. Aguardando primeiro upload.");
-                 // If no data in Firestore, clear local state too
-                appState.allData = [];
-                appState.filteredData = [];
-                renderDashboard();
-            }
-        }, (error) => {
-            console.error("Erro ao escutar mudanças: ", error);
-            showToast("Erro de conexão em tempo real.", 'error');
-        });
-}
-
 
 const translations = {
     pt: {
@@ -622,7 +533,7 @@ function processData(data: any[]): ContainerData[] {
                 const shipowner = String(row['Shipowner'] || 'DEFAULT').trim().toUpperCase();
                 const rate = appState.demurrageRates[shipowner] || appState.demurrageRates.default;
                 const demurrageCost = demurrageDays * rate;
-                    
+                 
                 return {
                     'PO': String(row['PO'] || ''),
                     'Vessel': String(row['Vessel'] || ''),
@@ -724,10 +635,9 @@ const handleFileUpload = (event: Event) => {
             
             appState.filteredData = appState.allData;
             appState.paidStatuses = {}; // Reset paid statuses on new upload
-            updateLastUpdate(file.name);
+            saveStateToLocalStorage();
             renderDashboard();
-            salvarDados(); // << INTEGRATION: Saves new data to Firebase
-            
+            updateLastUpdate(file.name);
             showToast(translate('toast_data_loaded'), 'success');
         } catch (error) {
             console.error(error);
@@ -742,14 +652,10 @@ const handleFileUpload = (event: Event) => {
 
 // --- RENDER FUNCTIONS ---
 function renderDashboard() {
-    if (appState.allData.length === 0) {
+    if (appState.filteredData.length === 0) {
         mainContentArea.classList.add('hidden');
         placeholder.classList.remove('hidden');
         filterContainer.classList.add('hidden');
-        clearDataBtn.classList.add('hidden');
-        settingsBtn.classList.add('hidden');
-        aiInsightsBtn.classList.add('hidden');
-        historyBtn.classList.add('hidden');
         return;
     }
     mainContentArea.classList.remove('hidden');
@@ -928,10 +834,10 @@ function applyFilters() {
 
     appState.filteredData = appState.allData.filter(d => {
         const arrivalDateMatch = (!arrivalStartDate || (d['Discharge Date'] && d['Discharge Date'] >= arrivalStartDate)) &&
-                                  (!arrivalEndDate || (d['Discharge Date'] && d['Discharge Date'] <= arrivalEndDate));
+                                 (!arrivalEndDate || (d['Discharge Date'] && d['Discharge Date'] <= arrivalEndDate));
     
         const freetimeDateMatch = (!freetimeStartDate || d['End of Free Time'] >= freetimeStartDate) &&
-                                   (!freetimeEndDate || d['End of Free Time'] <= freetimeEndDate);
+                                  (!freetimeEndDate || d['End of Free Time'] <= freetimeEndDate);
 
         return (poFilter.length === 0 || poFilter.includes(d.PO)) &&
                (vesselFilter.length === 0 || vesselFilter.includes(d.Vessel)) &&
@@ -1059,7 +965,7 @@ function openDetailsModal(container: ContainerData) {
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div><p class="text-gray-500 dark:text-slate-400">Data de Descarga</p><p class="font-semibold text-gray-800 dark:text-slate-100">${formatDate(container['Discharge Date'])}</p></div>
                     <div><p class="text-gray-500 dark:text-slate-400">Dias Livres</p><p class="font-semibold text-gray-800 dark:text-slate-100">${container['Free Days']}</p></div>
-                    <div><p class="text-gray-500 dark:text-slate-400">Fim do Tempo Livre</p><p class="font-semibold text-gray-800 dark:text-slate-200">${formatDate(container['End of Free Time'])}</p></div>
+                    <div><p class="text-gray-500 dark:text-slate-400">Fim do Tempo Livre</p><p class="font-semibold text-gray-800 dark:text-slate-100">${formatDate(container['End of Free Time'])}</p></div>
                     <div><p class="text-gray-500 dark:text-slate-400">Data de Devolução</p><p class="font-semibold text-gray-800 dark:text-slate-100">${formatDate(container['Return Date'])}</p></div>
                 </div>
             </div>
@@ -1245,9 +1151,10 @@ function saveRates() {
         container['Demurrage Cost'] = container['Demurrage Days'] * rate;
     });
 
-    salvarDados(); // << INTEGRATION: Saves new rates to Firebase
+    saveStateToLocalStorage();
     showToast(translate('toast_settings_saved'), 'success');
     
+    // applyFilters() will refresh filteredData and then renderDashboard() will update the UI
     applyFilters();
     
     closeModal('rates-modal');
@@ -1349,7 +1256,7 @@ function hideHistoryBanner() {
 
 function returnToLiveView() {
     hideHistoryBanner();
-    escutarMudancasEmTempoReal(); // Re-sync with live data
+    loadStateFromLocalStorage(); // Reloads the latest data
     showToast(translate('toast_returned_to_live'), 'success');
 }
 
@@ -1411,7 +1318,7 @@ function renderPaidDemurrageTable() {
             const target = e.target as HTMLInputElement;
             const containerId = target.dataset.containerId!;
             appState.paidStatuses[containerId] = target.checked;
-            salvarDados(); // << INTEGRATION: Saves new payment status to Firebase
+            saveStateToLocalStorage();
             renderPaidDemurrageTable(); // Re-render to update summary and styles
         });
     });
@@ -1528,9 +1435,9 @@ function createOrUpdateCharts() {
                 legend: { display: false },
                 datalabels: {
                      ...chartOptions.plugins.datalabels,
-                    anchor: 'end',
-                    align: 'top',
-                    formatter: (value) => (value > 0 ? formatCurrency(value) : null),
+                     anchor: 'end',
+                     align: 'top',
+                     formatter: (value) => (value > 0 ? formatCurrency(value) : null),
                 },
                 tooltip: {
                     ...tooltipConfig,
@@ -1731,37 +1638,59 @@ function createOrUpdateCharts() {
 
 
 // --- PERSISTENCE ---
-function savePrefsToLocalStorage() {
-    if (appState.isViewingHistory) return;
-    const prefsToSave = {
+function saveStateToLocalStorage() {
+    if (appState.isViewingHistory) return; // Do not save over live data when viewing history
+    const stateToSave = {
+        allData: appState.allData,
+        demurrageRates: appState.demurrageRates,
+        paidStatuses: appState.paidStatuses,
+        lastUpdate: lastUpdateEl.innerHTML,
         currentLanguage: appState.currentLanguage
     };
-    localStorage.setItem('demurrageUserPrefs', JSON.stringify(prefsToSave));
+    localStorage.setItem('demurrageAppState', JSON.stringify(stateToSave));
 }
 
-function loadPrefsFromLocalStorage() {
-    const savedPrefs = localStorage.getItem('demurrageUserPrefs');
-    if (savedPrefs) {
-        const parsedPrefs = JSON.parse(savedPrefs);
-        appState.currentLanguage = parsedPrefs.currentLanguage || 'pt';
+function loadStateFromLocalStorage() {
+    const savedState = localStorage.getItem('demurrageAppState');
+    if (savedState) {
+        const parsedState = JSON.parse(savedState);
+        appState.allData = parsedState.allData.map(d => {
+            const dischargeDate = d['Discharge Date'] ? new Date(d['Discharge Date']) : null;
+            const endOfFreeTime = new Date(d['End of Free Time']);
+            
+            let hasDateError = false;
+            if ((dischargeDate && dischargeDate.getUTCFullYear() < 1950) || (endOfFreeTime && endOfFreeTime.getUTCFullYear() < 1950)) {
+                hasDateError = true;
+            }
+            
+            return {
+                ...d,
+                'Discharge Date': dischargeDate,
+                'End of Free Time': endOfFreeTime,
+                'Return Date': d['Return Date'] ? new Date(d['Return Date']) : undefined,
+                hasDateError,
+            };
+        });
+        appState.filteredData = appState.allData;
+        appState.demurrageRates = parsedState.demurrageRates || { default: 100 };
+        appState.paidStatuses = parsedState.paidStatuses || {};
+        appState.currentLanguage = parsedState.currentLanguage || 'pt';
+        lastUpdateEl.innerHTML = parsedState.lastUpdate;
+        renderDashboard();
     }
 }
-
 
 function clearData() {
-    if (confirm('Tem certeza de que deseja limpar todos os dados do dashboard? Esta ação não pode ser desfeita.')) {
-        localStorage.removeItem('demurrageHistory'); // Clear local history
-        
-        // Clear the document in Firebase
-        db.collection("demurrage_dashboard").doc("estado_atual").delete().then(() => {
-            showToast(translate('toast_clear_data'), 'info');
-            // The onSnapshot listener will automatically handle the UI update
-        }).catch((error) => {
-            console.error("Error removing document: ", error);
-        });
+    if (confirm('Tem certeza de que deseja limpar todos os dados e o histórico? Esta ação não pode ser desfeita.')) {
+        localStorage.removeItem('demurrageAppState');
+        localStorage.removeItem('demurrageHistory');
+        appState.allData = [];
+        appState.filteredData = [];
+        appState.paidStatuses = {};
+        location.reload();
+        showToast(translate('toast_clear_data'), 'info');
     }
 }
-
 
 // --- AI INSIGHTS & REPORTS ---
 function simpleMarkdownToHtml(text) {
@@ -1781,7 +1710,7 @@ async function getAiInsights() {
     openModal('ai-modal');
     
     try {
-        const ai = new GoogleGenAI(GEMINI_API_KEY);
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
         const allLateContainers = appState.filteredData.filter(d => d['Demurrage Cost'] > 0);
         
@@ -1855,11 +1784,12 @@ async function getAiInsights() {
             - Top 3 Problematic Containers (by cost): ${JSON.stringify(dataSummary.topProblemContainers)}
         `;
 
-        const model = ai.getGenerativeModel({ model: "gemini-pro"});
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+        });
         
-        modalBody.innerHTML = simpleMarkdownToHtml(response.text());
+        modalBody.innerHTML = simpleMarkdownToHtml(response.text);
 
     } catch (error) {
         console.error("AI Insights Error:", error);
@@ -1875,7 +1805,7 @@ async function generateDemurrageJustification(container: ContainerData) {
     </div>`;
 
     try {
-        const ai = new GoogleGenAI(GEMINI_API_KEY);
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
         const prompt = `
             As a senior logistics coordinator, I need to write a formal justification report for a demurrage charge to get payment approval. Based on the data for the container below, please generate a plausible and professional report.
@@ -1903,10 +1833,12 @@ async function generateDemurrageJustification(container: ContainerData) {
             Generate only the report text in markdown format.
         `;
         
-        const model = ai.getGenerativeModel({ model: "gemini-pro"});
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const reportHtml = simpleMarkdownToHtml(response.text());
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+        });
+
+        const reportHtml = simpleMarkdownToHtml(response.text);
 
         reportArea.innerHTML = `
             <div class="relative">
@@ -1966,7 +1898,7 @@ function translateApp() {
 
 function cycleLanguage() {
     appState.currentLanguage = appState.currentLanguage === 'pt' ? 'en' : appState.currentLanguage === 'en' ? 'zh' : 'pt';
-    savePrefsToLocalStorage();
+    saveStateToLocalStorage();
     translateApp();
     if (appState.allData.length > 0) {
       renderPaidDemurrageTable(); // Re-render table with new headers
@@ -2050,13 +1982,11 @@ function init() {
 
     setupModals();
     setupFilterSearch();
-    loadPrefsFromLocalStorage(); 
-    translateApp();
-    
-    // Inicia a "conversa" com o Firebase
-    escutarMudancasEmTempoReal(); // << 4. INTEGRAÇÃO: Começa a ouvir por atualizações
+    loadStateFromLocalStorage();
+    if(appState.allData.length === 0) {
+        translateApp();
+    }
 }
 
 // --- RUN APP ---
 document.addEventListener('DOMContentLoaded', init);
-
