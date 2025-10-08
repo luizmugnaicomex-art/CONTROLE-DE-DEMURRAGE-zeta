@@ -1,66 +1,63 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard de Controle de Demurrage</title>
-    
-    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Libraries for Excel, Charts, and PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    
-    <!-- Fonts and Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Local Stylesheet -->
-    <link rel="stylesheet" href="index.css">
-
-    <!-- 
-      COMENTÁRIO DE CORREÇÃO: 
-      O bloco <script type="importmap"> foi removido.
-      Ele causava um erro de build na Vercel porque o sistema de compilação (Vite)
-      não conseguia encontrar o módulo "@google/genai" durante o processo no servidor.
-      Para que o projeto volte a funcionar, você também precisará remover ou comentar a linha 
-      `import ... from "@google/genai";` do seu arquivo `index.tsx`.
-      Isso desativará temporariamente a funcionalidade de "AI Insights".
-    -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .active-tab { 
+            border-color: #3b82f6; 
+            color: #3b82f6; 
+            font-weight: 600;
+        }
+        .dark .active-tab {
+            border-color: #60a5fa;
+            color: #60a5fa;
+        }
+        .kpi-card { transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; }
+        .kpi-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
+        .demurrage-column { height: 65vh; overflow-y: auto; }
+        .demurrage-column::-webkit-scrollbar { width: 6px; }
+        .demurrage-column::-webkit-scrollbar-track { background: transparent; }
+        .demurrage-column::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark .demurrage-column::-webkit-scrollbar-thumb { background: #475569; }
+        .container-card { transition: box-shadow 0.2s ease; cursor: pointer; border-left-width: 4px; }
+        .container-card:hover { box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+        .modal { transition: opacity 0.3s ease; }
+        .modal-content-wrapper { transition: all 0.3s ease; }
+        .modal-open { opacity: 1 !important; pointer-events: auto !important; }
+        .modal-open .modal-content-wrapper { transform: scale(1) !important; opacity: 1 !important; }
+        .data-table th { padding: 10px 8px; text-align: left; font-size: 0.75rem; }
+        .data-table td { padding: 10px 8px; font-size: 0.8rem; }
+        .data-table tr.paid { background-color: #f0fdf4; text-decoration: line-through; color: #6b7280; }
+        .dark .data-table tr.paid { background-color: #166534; color: #a1a1aa; }
+        .toggle-label { transition: background-color 0.2s ease; }
+        .toast-container { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 9999; }
+        .toast { animation: slide-in 0.5s forwards, fade-out 0.5s 4.5s forwards; }
+        @keyframes slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fade-out { from { opacity: 1; } to { opacity: 0; transform: translateX(100%); } }
+    </style>
 </head>
-<body class="p-4 md:p-8 bg-slate-100 dark:bg-slate-900 font-[Inter,sans-serif]">
-    
-    <!-- History Banner (initially hidden) -->
-    <div id="history-banner" class="hidden fixed top-0 left-0 right-0 bg-yellow-400 dark:bg-yellow-600 text-black dark:text-white p-2 text-center text-sm font-semibold z-[100] shadow-lg">
-        <span id="history-banner-text"></span>
-        <button id="return-to-live-btn" class="ml-4 underline font-bold hover:text-blue-700 dark:hover:text-blue-300" data-translate-key="return_to_live_btn">Voltar à visualização atual</button>
-    </div>
-
+<body class="p-4 md:p-8 bg-slate-100 dark:bg-slate-900">
     <div class="max-w-full mx-auto">
         
-        <!-- Header -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
             <div>
                 <h1 class="text-3xl font-extrabold text-gray-800 dark:text-slate-100" data-translate-key="main_title">DASHBOARD DE CONTROLE DE DEMURRAGE</h1>
                 <p id="last-update" class="text-gray-500 dark:text-slate-400 mt-1" data-translate-key="upload_prompt_initial">Carregue sua planilha para começar</p>
             </div>
             <div class="flex items-center space-x-2 mt-4 md:mt-0">
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                        <i class="fas fa-search text-gray-400 dark:text-slate-500"></i>
-                    </span>
-                    <input type="search" id="global-search-input" data-translate-key="global_search_placeholder" placeholder="Search all details..." class="pl-10 w-64 block rounded-lg border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700/50 dark:text-slate-200 shadow-md focus:border-blue-500 focus:ring-blue-500 h-[44px] transition-all duration-300 focus:w-80">
-                </div>
-                <div class="flex items-center space-x-0 rounded-lg shadow-md">
-                    <button id="history-btn" class="hidden cursor-pointer bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-700 dark:hover:bg-cyan-600 text-white px-4 h-[44px] rounded-l-lg transition-all duration-300 font-semibold flex items-center" title="Histórico">
-                        <i class="fas fa-history"></i>
-                    </button>
-                    <button id="settings-btn" class="hidden cursor-pointer bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-500 text-white px-4 h-[44px] transition-all duration-300 font-semibold flex items-center" title="Configurações">
+                 <div class="flex items-center space-x-0 rounded-lg shadow-md">
+                    <button id="settings-btn" class="hidden cursor-pointer bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-500 text-white px-4 h-[44px] rounded-l-lg transition-all duration-300 font-semibold flex items-center" title="Configurações">
                         <i class="fas fa-cog"></i>
                     </button>
                     <button id="clear-data-btn" class="hidden cursor-pointer bg-yellow-500 hover:bg-yellow-600 dark:bg-yellow-600 dark:hover:bg-yellow-500 text-white px-4 h-[44px] rounded-r-lg transition-all duration-300 font-semibold flex items-center">
@@ -68,16 +65,10 @@
                     </button>
                 </div>
                 <div class="flex items-center space-x-2 rounded-lg shadow-md">
-                    <button id="translate-btn" class="cursor-pointer bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 text-white px-4 h-[44px] rounded-l-lg transition-all duration-300 font-semibold flex items-center">
-                        <i class="fas fa-language mr-2"></i> <span id="translate-btn-text">中文</span>
-                    </button>
-                    <button id="theme-toggle-btn" class="cursor-pointer bg-slate-700 hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-500 text-white px-4 h-[44px] rounded-r-lg transition-all duration-300 font-semibold flex items-center w-[52px] justify-center">
+                    <button id="theme-toggle-btn" class="cursor-pointer bg-slate-700 hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-500 text-white px-4 h-[44px] rounded-lg transition-all duration-300 font-semibold flex items-center w-[52px] justify-center">
                         <i id="theme-toggle-icon" class="fas fa-moon"></i>
                     </button>
                 </div>
-                <button id="ai-insights-btn" class="hidden cursor-pointer bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-400 text-white px-4 h-[44px] rounded-lg shadow-md transition-all duration-300 font-semibold flex items-center">
-                    <i class="fas fa-magic mr-2"></i> <span data-translate-key="ai_insights_btn">AI Insights</span>
-                </button>
                 <label for="file-upload" class="cursor-pointer bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 text-white px-4 py-2.5 rounded-lg shadow-md transition-all duration-300 font-semibold flex items-center h-[44px]">
                     <i class="fas fa-upload mr-2"></i> <span data-translate-key="upload_btn">Carregar XLSX</span>
                 </label>
@@ -85,197 +76,37 @@
             </div>
         </header>
 
-        <!-- Filters -->
-        <div id="filter-container" class="hidden bg-white dark:bg-slate-800 p-4 rounded-lg shadow mb-6">
-             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 xl:grid-cols-12 gap-4 items-start">
-                <div class="lg:col-span-1 xl:col-span-2">
-                    <label for="po-filter" class="block text-sm font-medium text-gray-700 dark:text-slate-300" data-translate-key="filter_po">Filtrar POs</label>
-                    <select id="po-filter" multiple class="mt-1 block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm h-24"></select>
-                </div>
-                <div class="lg:col-span-1 xl:col-span-2">
-                    <label for="vessel-filter" class="block text-sm font-medium text-gray-700 dark:text-slate-300" data-translate-key="filter_vessel">Filtrar Navios</label>
-                    <input type="text" id="vessel-search-input" placeholder="Pesquisar..." class="mt-1 block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm text-sm p-2 mb-1" data-translate-key="vessel_search_placeholder" />
-                    <select id="vessel-filter" multiple class="block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm h-20"></select>
-                </div>
-                 <div class="lg:col-span-1 xl:col-span-2">
-                    <label for="container-filter" class="block text-sm font-medium text-gray-700 dark:text-slate-300" data-translate-key="filter_container">Filtrar Contêiner</label>
-                    <input type="text" id="container-search-input" placeholder="Pesquisar..." class="mt-1 block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm text-sm p-2 mb-1" data-translate-key="vessel_search_placeholder">
-                    <select id="container-filter" multiple class="block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm h-20"></select>
-                </div>
-                 <div class="lg:col-span-1 xl:col-span-1">
-                    <label for="final-status-filter" class="block text-sm font-medium text-gray-700 dark:text-slate-300" data-translate-key="filter_final_status">Status Final</label>
-                    <select id="final-status-filter" multiple class="mt-1 block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm h-24"></select>
-                </div>
-                <div class="lg:col-span-1 xl:col-span-1">
-                    <label for="loading-type-filter" class="block text-sm font-medium text-gray-700 dark:text-slate-300" data-translate-key="filter_loading_type">Tipo Carregamento</label>
-                    <select id="loading-type-filter" multiple class="mt-1 block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm h-24"></select>
-                </div>
-                 <div class="lg:col-span-1 xl:col-span-1">
-                    <label for="cargo-type-filter" class="block text-sm font-medium text-gray-700 dark:text-slate-300" data-translate-key="filter_cargo_type">Tipo de Carga</label>
-                    <select id="cargo-type-filter" multiple class="mt-1 block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm h-24"></select>
-                </div>
-                <div class="lg:col-span-1 xl:col-span-3">
-                    <label for="shipowner-filter" class="block text-sm font-medium text-gray-700 dark:text-slate-300" data-translate-key="filter_shipowner">Armador (Shipowner)</label>
-                    <input type="text" id="shipowner-search-input" placeholder="Pesquisar..." class="mt-1 block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm text-sm p-2 mb-1" data-translate-key="vessel_search_placeholder" />
-                    <select id="shipowner-filter" multiple class="block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm h-20"></select>
-                </div>
-
-                <div class="col-span-full mt-4 pt-4 border-t border-gray-200 dark:border-slate-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
-                    <div>
-                        <label for="arrival-start-date" class="block text-sm font-medium text-gray-700 dark:text-slate-300" data-translate-key="filter_arrival_start">Início da Chegada</label>
-                        <input type="date" id="arrival-start-date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm p-1.5 text-sm">
-                    </div>
-                    <div>
-                        <label for="arrival-end-date" class="block text-sm font-medium text-gray-700 dark:text-slate-300" data-translate-key="filter_arrival_end">Fim da Chegada</label>
-                        <input type="date" id="arrival-end-date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm p-1.5 text-sm">
-                    </div>
-                    <div>
-                        <label for="freetime-start-date" class="block text-sm font-medium text-gray-700 dark:text-slate-300" data-translate-key="filter_freetime_start">Início do FreeTime</label>
-                        <input type="date" id="freetime-start-date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm p-1.5 text-sm">
-                    </div>
-                    <div>
-                        <label for="freetime-end-date" class="block text-sm font-medium text-gray-700 dark:text-slate-300" data-translate-key="filter_freetime_end">Fim do FreeTime</label>
-                        <input type="date" id="freetime-end-date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm p-1.5 text-sm">
-                    </div>
-                    <div class="lg:col-span-2 flex items-center space-x-2">
-                        <button id="apply-filters-btn" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 font-semibold flex items-center justify-center">
-                            <i class="fas fa-filter mr-2"></i> <span data-translate-key="filter_btn">Filtrar</span>
-                        </button>
-                        <button id="reset-filters-btn" class="w-full bg-gray-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-600 font-semibold flex items-center justify-center">
-                            <i class="fas fa-undo mr-2"></i> <span data-translate-key="clear_btn">Limpar</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Content Area -->
         <div id="main-content-area" class="hidden">
-            <!-- Tabs -->
             <div class="mb-6 border-b border-gray-200 dark:border-slate-700">
                 <nav class="flex space-x-4 -mb-px" aria-label="Tabs">
-                    <button class="tab-btn active-tab" data-tab="dashboard">
-                        <i class="fas fa-th-large mr-2"></i><span data-translate-key="tab_dashboard">Dashboard</span>
-                    </button>
-                    <button class="tab-btn" data-tab="analytics">
-                        <i class="fas fa-chart-pie mr-2"></i><span data-translate-key="tab_analytics">Analytics</span>
-                    </button>
-                    <button class="tab-btn" data-tab="paid-demurrage">
-                        <i class="fas fa-money-check-alt mr-2"></i><span data-translate-key="tab_paid_demurrage">Demurrage Pago</span>
-                    </button>
+                    <button class="tab-btn active-tab" data-tab="dashboard"><i class="fas fa-th-large mr-2"></i><span data-translate-key="tab_dashboard">Dashboard</span></button>
+                    <button class="tab-btn" data-tab="paid-demurrage"><i class="fas fa-money-check-alt mr-2"></i><span data-translate-key="tab_paid_demurrage">Demurrage Pago</span></button>
                 </nav>
             </div>
             
-            <!-- Tab Panels -->
             <div id="tab-panel-dashboard" class="tab-panel">
-                 <!-- KPIs -->
                 <div id="kpi-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
-                    <div class="kpi-card p-5" data-kpi-category="demurrage">
-                        <p class="text-sm font-medium text-red-600" data-translate-key="kpi_demurrage_title">Com Demurrage</p>
-                        <p id="demurrage-count" class="text-4xl font-extrabold text-red-600">0</p>
-                        <p class="text-xs text-gray-500 dark:text-slate-400" data-translate-key="kpi_demurrage_subtitle">Contêineres com prazo vencido</p>
-                    </div>
-                     <div class="kpi-card p-5" data-kpi-tab="paid-demurrage">
-                        <p class="text-sm font-medium text-amber-600" data-translate-key="kpi_returned_late_title">Devolvidos com Demurrage</p>
-                        <p id="returned-late-count" class="text-4xl font-extrabold text-amber-600">0</p>
-                        <p class="text-xs text-gray-500 dark:text-slate-400" data-translate-key="kpi_returned_late_subtitle">Contêineres entregues com custo</p>
-                    </div>
-                    <div class="kpi-card p-5" data-kpi-category="risk">
-                        <p class="text-sm font-medium text-orange-600" data-translate-key="kpi_risk_title">Em Risco (Próx. 15 dias)</p>
-                        <p id="risk-count" class="text-4xl font-extrabold text-orange-600">0</p>
-                        <p class="text-xs text-gray-500 dark:text-slate-400" data-translate-key="kpi_risk_subtitle">Contêineres com prazo vencendo</p>
-                    </div>
-                    <div class="kpi-card p-5" data-kpi-category="returned">
-                        <p class="text-sm font-medium text-green-600" data-translate-key="kpi_returned_title">Devolvidos no Prazo</p>
-                        <p id="returned-count" class="text-4xl font-extrabold text-green-600">0</p>
-                        <p class="text-xs text-gray-500 dark:text-slate-400" data-translate-key="kpi_returned_subtitle">Contêineres retornados sem custo</p>
-                    </div>
-                     <div class="kpi-card p-5">
-                        <p class="text-sm font-medium text-gray-600 dark:text-slate-300" data-translate-key="kpi_cost_title">Custo Total de Demurrage</p>
-                        <p id="total-cost" class="text-4xl font-extrabold text-gray-800 dark:text-slate-100">$0</p>
-                        <p class="text-xs text-gray-500 dark:text-slate-400" data-translate-key="kpi_cost_subtitle">*Custo de contêineres ativos e já devolvidos</p>
-                    </div>
+                    <div class="kpi-card p-5" data-kpi-category="demurrage"><p class="text-sm font-medium text-red-600" data-translate-key="kpi_demurrage_title">Com Demurrage</p><p id="demurrage-count" class="text-4xl font-extrabold text-red-600">0</p><p class="text-xs text-gray-500 dark:text-slate-400" data-translate-key="kpi_demurrage_subtitle">Contêineres com prazo vencido</p></div>
+                    <div class="kpi-card p-5" data-kpi-tab="paid-demurrage"><p class="text-sm font-medium text-amber-600" data-translate-key="kpi_returned_late_title">Devolvidos com Demurrage</p><p id="returned-late-count" class="text-4xl font-extrabold text-amber-600">0</p><p class="text-xs text-gray-500 dark:text-slate-400" data-translate-key="kpi_returned_late_subtitle">Contêineres entregues com custo</p></div>
+                    <div class="kpi-card p-5" data-kpi-category="risk"><p class="text-sm font-medium text-orange-600" data-translate-key="kpi_risk_title">Em Risco (Próx. 15 dias)</p><p id="risk-count" class="text-4xl font-extrabold text-orange-600">0</p><p class="text-xs text-gray-500 dark:text-slate-400" data-translate-key="kpi_risk_subtitle">Contêineres com prazo vencendo</p></div>
+                    <div class="kpi-card p-5" data-kpi-category="returned"><p class="text-sm font-medium text-green-600" data-translate-key="kpi_returned_title">Devolvidos no Prazo</p><p id="returned-count" class="text-4xl font-extrabold text-green-600">0</p><p class="text-xs text-gray-500 dark:text-slate-400" data-translate-key="kpi_returned_subtitle">Contêineres retornados sem custo</p></div>
+                    <div class="kpi-card p-5"><p class="text-sm font-medium text-gray-600 dark:text-slate-300" data-translate-key="kpi_cost_title">Custo Total de Demurrage</p><p id="total-cost" class="text-4xl font-extrabold text-gray-800 dark:text-slate-100">$0</p><p class="text-xs text-gray-500 dark:text-slate-400" data-translate-key="kpi_cost_subtitle">*Custo de contêineres ativos e já devolvidos</p></div>
                 </div>
 
-                 <!-- Demurrage Board -->
-                <main id="demurrage-board" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                    <div id="col-date-issue">
-                        <h2 class="text-lg font-bold text-purple-700 dark:text-purple-400 mb-3 p-2 bg-purple-100 dark:bg-purple-900/30 rounded-md" data-translate-key="board_title_date_issue">ANALISAR DATA</h2>
-                        <div class="demurrage-column space-y-3"></div>
-                    </div>
-                    <div id="col-demurrage">
-                        <h2 class="text-lg font-bold text-red-700 dark:text-red-400 mb-3 p-2 bg-red-100 dark:bg-red-900/30 rounded-md" data-translate-key="board_title_demurrage">COM DEMURRAGE (ATRASADO)</h2>
-                        <div class="demurrage-column space-y-3"></div>
-                    </div>
-                    <div id="col-high-risk">
-                         <h2 class="text-lg font-bold text-orange-700 dark:text-orange-400 mb-3 p-2 bg-orange-100 dark:bg-orange-900/30 rounded-md" data-translate-key="board_title_high_risk">ALTO RISCO (VENCE ≤ 15 DIAS)</h2>
-                        <div class="demurrage-column space-y-3"></div>
-                    </div>
-                    <div id="col-medium-risk">
-                        <h2 class="text-lg font-bold text-yellow-700 dark:text-yellow-400 mb-3 p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-md" data-translate-key="board_title_medium_risk">ATENÇÃO (VENCE ≤ 30 DIAS)</h2>
-                        <div class="demurrage-column space-y-3"></div>
-                    </div>
-                    <div id="col-low-risk">
-                        <h2 class="text-lg font-bold text-green-700 dark:text-green-400 mb-3 p-2 bg-green-100 dark:bg-green-900/30 rounded-md" data-translate-key="board_title_low_risk">SEGURO (> 30 DIAS)</h2>
-                        <div class="demurrage-column space-y-3"></div>
-                    </div>
+                <main id="demurrage-board" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div id="col-demurrage"><h2 class="text-lg font-bold text-red-700 dark:text-red-400 mb-3 p-2 bg-red-100 dark:bg-red-900/30 rounded-md" data-translate-key="board_title_demurrage">COM DEMURRAGE (ATRASADO)</h2><div class="demurrage-column space-y-3"></div></div>
+                    <div id="col-high-risk"><h2 class="text-lg font-bold text-orange-700 dark:text-orange-400 mb-3 p-2 bg-orange-100 dark:bg-orange-900/30 rounded-md" data-translate-key="board_title_high_risk">ALTO RISCO (VENCE ≤ 15 DIAS)</h2><div class="demurrage-column space-y-3"></div></div>
+                    <div id="col-medium-risk"><h2 class="text-lg font-bold text-yellow-700 dark:text-yellow-400 mb-3 p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-md" data-translate-key="board_title_medium_risk">ATENÇÃO (VENCE ≤ 30 DIAS)</h2><div class="demurrage-column space-y-3"></div></div>
+                    <div id="col-low-risk"><h2 class="text-lg font-bold text-green-700 dark:text-green-400 mb-3 p-2 bg-green-100 dark:bg-green-900/30 rounded-md" data-translate-key="board_title_low_risk">SEGURO (> 30 DIAS)</h2><div class="demurrage-column space-y-3"></div></div>
                 </main>
             </div>
-            <div id="tab-panel-analytics" class="tab-panel hidden">
-                <div id="analytics-content" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow">
-                         <h3 class="text-lg font-bold text-gray-800 dark:text-slate-100 mb-4" data-translate-key="chart_title_cost_analysis">Análise de Custos: Real vs. Risco Gerenciado</h3>
-                        <div class="h-80 relative">
-                            <canvas id="costAnalysisChart"></canvas>
-                        </div>
-                        <p id="cost-summary-text" class="mt-4 text-center text-sm text-gray-600 dark:text-slate-400"></p>
-                    </div>
-                    <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow">
-                         <h3 class="text-lg font-bold text-gray-800 dark:text-slate-100 mb-4" data-translate-key="chart_title_operational_efficiency">Eficiência Operacional</h3>
-                        <div class="h-80 relative">
-                            <canvas id="operationalPerformanceChart"></canvas>
-                        </div>
-                        <p id="performance-summary-text" class="mt-4 text-center text-sm text-gray-600 dark:text-slate-400"></p>
-                    </div>
-                    <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow">
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-slate-100 mb-4" data-translate-key="chart_title_demurrage_by_shipowner">Custo de Demurrage por Armador</h3>
-                        <div class="h-80 relative">
-                             <canvas id="demurrageByShipownerChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow">
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-slate-100 mb-4" data-translate-key="chart_title_avg_days_by_shipowner">Dias Médios de Demurrage por Armador</h3>
-                        <div class="h-80 relative">
-                             <canvas id="avgDaysByShipownerChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-                 <div id="analytics-placeholder" class="hidden text-center py-20 bg-white dark:bg-slate-800 rounded-lg shadow">
-                    <i class="fas fa-chart-line text-6xl text-gray-300 dark:text-slate-600 mb-4"></i>
-                    <h2 class="text-2xl font-semibold text-gray-600 dark:text-slate-300" data-translate-key="analytics_placeholder_title">Análise Indisponível</h2>
-                    <p class="text-gray-400 dark:text-slate-500" data-translate-key="analytics_placeholder_subtitle">Filtros atuais não retornaram dados para análise.</p>
-                </div>
-            </div>
              <div id="tab-panel-paid-demurrage" class="tab-panel hidden">
-                <!-- Summary cards for this tab -->
                 <div id="paid-demurrage-summary" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                     <div class="kpi-card p-5">
-                        <p class="text-sm font-medium text-red-600" data-translate-key="summary_total_cost_returned">Custo Total (Devolvidos)</p>
-                        <p id="summary-total-cost" class="text-4xl font-extrabold text-red-600">_</p>
-                    </div>
-                     <div class="kpi-card p-5">
-                        <p class="text-sm font-medium text-green-600" data-translate-key="summary_paid">Total Pago</p>
-                        <p id="summary-paid-cost" class="text-4xl font-extrabold text-green-600">_</p>
-                    </div>
-                     <div class="kpi-card p-5">
-                        <p class="text-sm font-medium text-orange-600" data-translate-key="summary_unpaid">Total Pendente</p>
-                        <p id="summary-unpaid-cost" class="text-4xl font-extrabold text-orange-600">_</p>
-                    </div>
+                    <div class="kpi-card p-5"><p class="text-sm font-medium text-red-600" data-translate-key="summary_total_cost_returned">Custo Total (Devolvidos)</p><p id="summary-total-cost" class="text-4xl font-extrabold text-red-600">_</p></div>
+                    <div class="kpi-card p-5"><p class="text-sm font-medium text-green-600" data-translate-key="summary_paid">Total Pago</p><p id="summary-paid-cost" class="text-4xl font-extrabold text-green-600">_</p></div>
+                    <div class="kpi-card p-5"><p class="text-sm font-medium text-orange-600" data-translate-key="summary_unpaid">Total Pendente</p><p id="summary-unpaid-cost" class="text-4xl font-extrabold text-orange-600">_</p></div>
                 </div>
-                <!-- Table container -->
-                <div id="paid-demurrage-table-container" class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow overflow-x-auto">
-                    <!-- Table will be rendered here by JS -->
-                </div>
+                <div id="paid-demurrage-table-container" class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow overflow-x-auto"></div>
             </div>
         </div>
         
@@ -285,114 +116,16 @@
             <p class="text-gray-400 dark:text-slate-500" data-translate-key="placeholder_subtitle">Selecione a planilha para iniciar a análise de demurrage.</p>
         </div>
     </div>
-     <!-- Loading Spinner -->
-    <div id="loading-overlay" class="hidden fixed inset-0 bg-white bg-opacity-75 dark:bg-slate-900 dark:bg-opacity-75 flex items-center justify-center z-50">
-        <div class="flex flex-col items-center">
-            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 dark:text-blue-400"></i>
-            <p class="mt-2 text-gray-700 dark:text-slate-300" data-translate-key="loading_text">Processando...</p>
-        </div>
-    </div>
+     <div id="details-modal" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-50 p-4 opacity-0 pointer-events-none"><div class="modal-content-wrapper bg-white dark:bg-slate-800 rounded-lg shadow-xl w-11/12 max-w-4xl max-h-[90vh] flex flex-col scale-95 opacity-0"><div class="p-4 border-b dark:border-slate-700 flex justify-between items-center"><div id="modal-header-content"></div><button id="modal-close-btn" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times fa-2x"></i></button></div><div id="modal-body" class="p-6 flex-grow overflow-y-auto"></div></div></div>
+    <div id="list-modal" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-50 p-4 opacity-0 pointer-events-none"><div class="modal-content-wrapper max-w-6xl bg-white dark:bg-slate-800 rounded-lg shadow-xl w-11/12 max-h-[90vh] flex flex-col scale-95 opacity-0"><div class="p-4 border-b dark:border-slate-700 flex justify-between items-center"><h2 id="list-modal-title" class="text-2xl font-bold text-gray-800 dark:text-slate-100"></h2><button id="list-modal-close-btn" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times fa-2x"></i></button></div><div id="list-modal-body" class="p-4 flex-grow overflow-y-auto"></div></div></div>
+    <div id="rates-modal" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-50 p-4 opacity-0 pointer-events-none"><div class="modal-content-wrapper max-w-2xl bg-white dark:bg-slate-800 rounded-lg shadow-xl w-11/12 flex flex-col scale-95 opacity-0"><div class="p-4 border-b dark:border-slate-700 flex justify-between items-center"><h2 class="text-2xl font-bold text-gray-800 dark:text-slate-100" data-translate-key="rates_modal_title">Taxas de Demurrage por Armador</h2><button id="rates-modal-close-btn" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times fa-2x"></i></button></div><div id="rates-modal-body" class="p-6 flex-grow overflow-y-auto space-y-4"></div><div class="p-4 border-t dark:border-slate-700 flex justify-end items-center"><p class="text-sm text-gray-500 dark:text-slate-400 mr-auto" data-translate-key="rates_modal_footer_note">Valores não definidos usarão a taxa padrão.</p><button id="rates-modal-save-btn" class="bg-blue-600 text-white px-5 py-2 rounded-md shadow-sm hover:bg-blue-700 font-semibold" data-translate-key="save_btn">Salvar</button></div></div></div>
 
-    <!-- Details Modal (Single Item) -->
-    <div id="details-modal" class="modal hidden">
-        <div id="modal-content" class="modal-content-wrapper">
-            <div class="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center flex-shrink-0">
-                 <div id="modal-header-content" class="flex-grow"></div>
-                <button id="modal-close-btn" class="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 ml-4"><i class="fas fa-times fa-2x"></i></button>
-            </div>
-            <div id="modal-body" class="p-4 flex-grow overflow-y-auto">
-                <div id="modal-details-content">
-                    <!-- Main details will be rendered here -->
-                </div>
-                <div id="justification-report-area" class="mt-6 pt-6 border-t border-gray-200 dark:border-slate-700">
-                    <!-- Button and report content will be injected here -->
-                </div>
-            </div>
-        </div>
-    </div>
+    <div id="toast-container" class="fixed top-5 right-5 z-[100]"></div>
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-white/70 dark:bg-slate-900/70 flex items-center justify-center z-[200]"></div>
 
-    <!-- List Modal (KPI Category View) -->
-    <div id="list-modal" class="modal hidden">
-        <div class="modal-content-wrapper max-w-6xl">
-            <div class="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center flex-shrink-0">
-                <div class="flex-grow">
-                    <h2 id="list-modal-title" class="text-2xl font-bold text-gray-800 dark:text-slate-100">Detalhes da Categoria</h2>
-                </div>
-                <div class="relative flex-shrink-0 mx-4">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3">
-                        <i class="fas fa-search text-gray-400 dark:text-slate-500"></i>
-                    </span>
-                    <input type="text" id="list-modal-filter" placeholder="Filter records..." class="pl-10 block w-full rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                </div>
-                <div class="flex items-center">
-                    <button id="export-pdf-btn" class="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 font-semibold flex items-center justify-center mr-4">
-                        <i class="fas fa-file-pdf mr-2"></i> <span data-translate-key="export_btn">Exportar PDF</span>
-                    </button>
-                    <button id="list-modal-close-btn" class="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300"><i class="fas fa-times fa-2x"></i></button>
-                </div>
-            </div>
-            <div id="list-modal-body" class="p-4 flex-grow overflow-y-auto"></div>
-        </div>
-    </div>
-
-    <!-- Rates Modal -->
-    <div id="rates-modal" class="modal hidden">
-        <div class="modal-content-wrapper max-w-2xl">
-            <div class="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-800 dark:text-slate-100" data-translate-key="rates_modal_title">Taxas de Demurrage por Armador</h2>
-                <button id="rates-modal-close-btn" class="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300"><i class="fas fa-times fa-2x"></i></button>
-            </div>
-            <div id="rates-modal-body" class="p-6 flex-grow overflow-y-auto space-y-4"></div>
-            <div class="p-4 border-t border-gray-200 dark:border-slate-700 flex justify-end items-center space-x-3">
-                <p class="text-sm text-gray-500 dark:text-slate-400 mr-auto" data-translate-key="rates_modal_footer_note">Valores não definidos usarão a taxa padrão.</p>
-                <button id="rates-modal-save-btn" class="bg-blue-600 text-white px-5 py-2 rounded-md shadow-sm hover:bg-blue-700 font-semibold" data-translate-key="save_btn">Salvar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- AI Insights Modal -->
-    <div id="ai-modal" class="modal hidden">
-        <div class="modal-content-wrapper max-w-3xl">
-            <div class="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-800 dark:text-slate-100" data-translate-key="ai_modal_title">AI Generated Insights</h2>
-                <button id="ai-modal-close-btn" class="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300"><i class="fas fa-times fa-2x"></i></button>
-            </div>
-            <div id="ai-modal-body" class="p-6 flex-grow overflow-y-auto space-y-4 prose prose-slate dark:prose-invert max-w-none">
-                <!-- AI content will be rendered here -->
-            </div>
-        </div>
-    </div>
-    
-    <!-- History Modal -->
-    <div id="history-modal" class="modal hidden">
-        <div class="modal-content-wrapper max-w-2xl">
-            <div class="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-800 dark:text-slate-100" data-translate-key="history_modal_title">Histórico de Uploads</h2>
-                <button id="history-modal-close-btn" class="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300"><i class="fas fa-times fa-2x"></i></button>
-            </div>
-            <div id="history-modal-body" class="p-6 flex-grow overflow-y-auto space-y-3">
-                <!-- History entries will be populated here by JS -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast Notification Container -->
-    <div id="toast-container" class="toast-container"></div>
-    
-    <!--
-      COMENTÁRIO DE CORREÇÃO:
-      Os scripts do Firebase abaixo estão no lugar perfeito.
-      1. Eles são carregados antes do seu script principal (index.tsx).
-      2. Isso garante que a variável `firebase` esteja disponível globalmente
-         quando o seu código em `index.tsx` for executado.
-      Nenhuma alteração foi necessária aqui.
-    -->
-    
-    <!-- SCRIPTS DO FIREBASE -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
-    <!-- SEU SCRIPT PRINCIPAL -->
-    <script src="index.tsx" type="module"></script>
+    <script>
+        // --- This script tag is intentionally left blank. ---
+        // --- All JavaScript logic has been moved to index.tsx and will be bundled. ---
+    </script>
 </body>
 </html>
